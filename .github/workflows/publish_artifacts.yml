@@ -11,15 +11,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Gate on workflow success
-      - name: Check triggering workflow conclusion
-        if: github.event.workflow_run.conclusion != 'success'
+      - name: Print release info
         run: |
-          echo "Triggering workflow did not succeed (conclusion: ${{ github.event.workflow_run.conclusion }}). Skipping."
-          exit 1
+          echo "✅ Release triggered: ${{ github.event.release.tag_name }}"
+          echo "Release URL: ${{ github.event.release.html_url }}"
 
-      # Step 2: Success message (only runs if the above didn't exit)
-      - name: Workflow success message
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "✅ Triggering workflow 'C Build Release' succeeded."
-          echo "Proceeding with indexing and deployment..."
+          TAG="${{ github.event.release.tag_name }}"
+          
+          # List all assets for this release
+          gh release download "$TAG" --dir ./downloaded-assets
+          
+          ls -la ./downloaded-assets/
