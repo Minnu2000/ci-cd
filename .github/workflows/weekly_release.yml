@@ -52,11 +52,11 @@ jobs:
           fi
 
           # Skip if no new commits (unless forced by manual trigger)
-          if [ "$COMMIT_COUNT" -eq 0 ] && [ "$FORCE_BUILD" = "false" ]; then
-            echo "No new commits since $LATEST_TAG, skipping release"
-            echo "should_build=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          # if [ "$COMMIT_COUNT" -eq 0 ] && [ "$FORCE_BUILD" = "false" ]; then
+          #   echo "No new commits since $LATEST_TAG, skipping release"
+          #   echo "should_build=false" >> $GITHUB_OUTPUT
+          #   exit 0
+          # fi
 
           echo "Found $COMMIT_COUNT new commits since ${LATEST_TAG:-initial}"
           echo "should_build=true" >> $GITHUB_OUTPUT
