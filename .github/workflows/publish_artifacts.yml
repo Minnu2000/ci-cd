@@ -16,13 +16,14 @@ jobs:
           echo "✅ Release triggered: ${{ github.event.release.tag_name }}"
           echo "Release URL: ${{ github.event.release.html_url }}"
 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Download release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.release.tag_name }}"
-          
-          # List all assets for this release
           gh release download "$TAG" --dir ./downloaded-assets
-          
           ls -la ./downloaded-assets/
