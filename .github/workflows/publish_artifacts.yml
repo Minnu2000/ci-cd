@@ -16,7 +16,6 @@ jobs:
           echo "✅ Release triggered: ${{ github.event.release.tag_name }}"
           echo "Release URL: ${{ github.event.release.html_url }}"
 
-    steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
