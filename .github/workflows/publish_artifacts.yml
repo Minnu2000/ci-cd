@@ -1,0 +1,27 @@
+name: publish artifacts
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - "Weekly Pre-Release Build"
+    types:
+      - completed
+
+jobs:
+  run-indexing:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Gate on workflow success
+      - name: Check triggering workflow conclusion
+        if: github.event.workflow_run.conclusion != 'success'
+        run: |
+          echo "Triggering workflow did not succeed (conclusion: ${{ github.event.workflow_run.conclusion }}). Skipping."
+          exit 1
+
+      # Step 2: Success message (only runs if the above didn't exit)
+      - name: Workflow success message
+        run: |
+          echo "✅ Triggering workflow 'C Build Release' succeeded."
+          echo "Proceeding with indexing and deployment..."
