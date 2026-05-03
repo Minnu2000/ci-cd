@@ -1,0 +1,195 @@
+name: Weekly Pre-Release Build
+
+on:
+  schedule:
+    # 8:00 AM UTC = 3:00 AM EST / 4:00 AM EDT (Sunday mornings)
+    - cron: '0 8 * * 0'
+  workflow_dispatch:
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for new commits and generate tag
+        id: check
+        run: |
+          # Manual triggers always build (unless tag collision)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FORCE_BUILD=true
+            echo "Manual trigger detected, will force build if no tag collision"
+          else
+            FORCE_BUILD=false
+          fi
+
+          # Get latest tag (any tag, including pre-releases)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          # Generate new tag for today
+          NEW_TAG="v$(date +%y.%m.%d)"
+
+          # Check if tag already exists - if so, skip (even for manual triggers)
+          if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
+            echo "Tag $NEW_TAG already exists, skipping release"
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check for new commits since last tag
+          if [ -n "$LATEST_TAG" ]; then
+            COMMIT_COUNT=$(git rev-list ${LATEST_TAG}..HEAD --count)
+          else
+            COMMIT_COUNT=$(git rev-list HEAD --count)
+          fi
+
+          # Skip if no new commits (unless forced by manual trigger)
+          if [ "$COMMIT_COUNT" -eq 0 ] && [ "$FORCE_BUILD" = "false" ]; then
+            echo "No new commits since $LATEST_TAG, skipping release"
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found $COMMIT_COUNT new commits since ${LATEST_TAG:-initial}"
+          echo "should_build=true" >> $GITHUB_OUTPUT
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "previous_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+      # - name: Install pre-requisites
+      #   if: steps.check.outputs.should_build == 'true'
+      #   run: |
+      #     sudo apt-get update && \
+      #     DEBIAN_FRONTEND=noninteractive \
+      #     sudo apt-get upgrade --yes && \
+      #     DEBIAN_FRONTEND=noninteractive \
+      #     sudo apt-get install --yes --no-install-recommends \
+      #       build-essential \
+      #       clang \
+      #       flex \
+      #       bison \
+      #       g++ \
+      #       gawk \
+      #       gcc-multilib \
+      #       g++-multilib \
+      #       gettext \
+      #       git \
+      #       libgnutls28-dev \
+      #       libncurses5-dev \
+      #       libssl-dev \
+      #       python3-dev \
+      #       python3-setuptools \
+      #       rsync \
+      #       swig \
+      #       unzip \
+      #       zlib1g-dev \
+      #       file \
+      #       wget \
+      #       sharutils \
+      #       swig
+
+      # - name: Install cross compilers
+      #   if: steps.check.outputs.should_build == 'true'
+      #   env:
+      #     CROSS_COMPILE: /opt/gcc-arm-9.2-2019.12-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+      #     ARCH: arm64
+      #   run: |
+      #     mkdir -p /tmp/dl && \
+      #     cd /tmp/dl && \
+      #     wget https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-a/9.2-2019.12/binrel/gcc-arm-9.2-2019.12-x86_64-aarch64-none-linux-gnu.tar.xz && \
+      #     tar -C /opt -xf /tmp/dl/gcc-arm-9.2-2019.12-x86_64-aarch64-none-linux-gnu.tar.xz && \
+      #     rm -rf /tmp/dl && \
+      #     ${CROSS_COMPILE}gcc --version
+
+      # - name: Build OpenWrt
+      #   if: steps.check.outputs.should_build == 'true'
+      #   env:
+      #     CROSS_COMPILE: /opt/gcc-arm-9.2-2019.12-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+      #     ARCH: arm64
+      #   run: |
+      #     ./build.sh build --model=kform-shield --build-version=${{ steps.check.outputs.new_tag }}
+
+      - name: Create and push tag
+        if: steps.check.outputs.should_build == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.check.outputs.new_tag }}" -m "Weekly pre-release ${{ steps.check.outputs.new_tag }}"
+          git push origin "${{ steps.check.outputs.new_tag }}"
+
+      - name: Generate changelog
+        if: steps.check.outputs.should_build == 'true'
+        id: changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NEW_TAG="${{ steps.check.outputs.new_tag }}"
+          PREVIOUS_TAG="${{ steps.check.outputs.previous_tag }}"
+
+          {
+            echo 'notes<<EOF'
+            echo "## Changes since ${PREVIOUS_TAG:-the beginning}"
+            echo ""
+
+            if [ -n "$PREVIOUS_TAG" ]; then
+              # Get the date of the previous tag for PR search
+              PREV_DATE=$(git log -1 --format=%cI "$PREVIOUS_TAG" | cut -d'T' -f1)
+
+              # Get merged PRs since previous tag
+              PR_LIST=$(gh pr list --state merged --base main --search "merged:>=$PREV_DATE" \
+                --json number,title,author \
+                --template '{{range .}}- {{.title}} (#{{.number}}) @{{.author.login}}
+          {{end}}' 2>/dev/null || echo "")
+
+              # Fallback to commits if no PRs found
+              if [ -z "$PR_LIST" ]; then
+                git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges
+              else
+                echo "$PR_LIST"
+              fi
+            else
+              echo "Initial release (showing last 20 commits)"
+              echo ""
+              git log --pretty=format:"- %s (%h)" --no-merges -20
+            fi
+
+            echo ""
+            echo ""
+            echo "---"
+            echo "*Automated weekly pre-release*"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Create GitHub pre-release
+        if: steps.check.outputs.should_build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.check.outputs.new_tag }}" \
+            --title "${{ steps.check.outputs.new_tag }}" \
+            --notes "${{ steps.changelog.outputs.notes }}" \
+            --prerelease
+
+      - name: Upload artifacts to release
+        if: steps.check.outputs.should_build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NEW_TAG="${{ steps.check.outputs.new_tag }}"
+          PROFILES="kform-shield-v0 kform-shield-v1r1 kform-shield-v1r3 kform-shield-v1r5"
+
+          for profile in $PROFILES; do
+            echo "Uploading artifacts for $profile..."
+            gh release upload "$NEW_TAG" \
+              "artifacts/resources/24.10.3/target/${profile}/${profile}-factory.img.tar.gz" \
+              "artifacts/resources/24.10.3/target/${profile}/${profile}-sysupgrade.bin"
+          done
+
+          echo "All artifacts uploaded successfully"
