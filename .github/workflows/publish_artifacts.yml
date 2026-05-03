@@ -2,11 +2,9 @@ name: publish artifacts
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - "Weekly Pre-Release Build"
+  release:
     types:
-      - completed
+      - released
 
 jobs:
   run-indexing:
