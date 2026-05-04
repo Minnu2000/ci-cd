@@ -183,13 +183,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           NEW_TAG="${{ steps.check.outputs.new_tag }}"
-          PROFILES="kform-shield-v1r1"
+          RELEASE_DIR="artifacts/resources/24.10.3"
 
-          for profile in $PROFILES; do
-            echo "Uploading artifacts for $profile..."
-            gh release upload "$NEW_TAG" \
-              "artifacts/resources/24.10.3/target/${profile}/${profile}-factory.img.tar.gz" \
-              "artifacts/resources/24.10.3/target/${profile}/${profile}-sysupgrade.bin"
-          done
+          # Fail fast if folder missing
+          if [ ! -d "$RELEASE_DIR" ]; then
+            echo "❌ Missing release directory: $RELEASE_DIR"
+            exit 1
+          fi
 
-          echo "All artifacts uploaded successfully"
+          echo "--- Folder structure being zipped ---"
+          find "$RELEASE_DIR" -type f | sort
+
+          # Zip the entire folder recursively
+          ARCHIVE="release-assets.tar.gz"
+          tar -czf "$ARCHIVE" -C "$(dirname $RELEASE_DIR)" "$(basename $RELEASE_DIR)"
+
+          echo "Uploading $ARCHIVE..."
+          gh release upload "$NEW_TAG" "$ARCHIVE"
+          echo "✅ Uploaded $ARCHIVE"
