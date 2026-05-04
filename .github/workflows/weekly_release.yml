@@ -63,16 +63,16 @@ jobs:
           echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
           echo "previous_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
-      # - name: Install pre-requisites
-      #   if: steps.check.outputs.should_build == 'true'
-      #   run: |
-      #     sudo apt-get update && \
-      #     DEBIAN_FRONTEND=noninteractive \
-      #     sudo apt-get upgrade --yes && \
-      #     DEBIAN_FRONTEND=noninteractive \
-      #     sudo apt-get install --yes --no-install-recommends \
-      #       build-essential \
-      #       clang \
+      - name: Install pre-requisites
+        if: steps.check.outputs.should_build == 'true'
+        run: |
+          sudo apt-get update && \
+          DEBIAN_FRONTEND=noninteractive \
+          sudo apt-get upgrade --yes && \
+          DEBIAN_FRONTEND=noninteractive \
+          sudo apt-get install --yes --no-install-recommends \
+          build-essential \
+          jq 
       #       flex \
       #       bison \
       #       g++ \
@@ -184,11 +184,21 @@ jobs:
         run: |
           NEW_TAG="${{ steps.check.outputs.new_tag }}"
           RELEASE_DIR="artifacts/resources/24.10.3"
+          RELEASE_INFO_SRC="./release_info.json"
 
           # Fail fast if folder missing
           if [ ! -d "$RELEASE_DIR" ]; then
             echo "❌ Missing release directory: $RELEASE_DIR"
             exit 1
+          fi
+
+          # Attempt to use jq, fallback to sed if not available
+          if command -v jq >/dev/null 2>&1; then
+              VERSION_NUM=$(jq -r '.stable_Release.version' "$RELEASE_INFO_SRC")
+              echo "parse version from JSON. $VERSION_NUM"
+          else
+              echo "Error: Could not parse version from JSON."
+              exit 1
           fi
 
           echo "--- Folder structure being zipped ---"
