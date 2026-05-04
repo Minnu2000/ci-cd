@@ -195,7 +195,7 @@ jobs:
           # Attempt to use jq, fallback to sed if not available
           if command -v jq >/dev/null 2>&1; then
               VERSION_NUM=$(jq -r '.stable_Release.version' "$RELEASE_INFO_SRC")
-              echo "parse version from JSON. $VERSION_NUM"
+              echo "parse version from JSON from develop . $VERSION_NUM"
           else
               echo "Error: Could not parse version from JSON."
               exit 1
