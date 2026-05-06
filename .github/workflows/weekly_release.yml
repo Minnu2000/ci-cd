@@ -175,10 +175,11 @@ jobs:
         run: |
 
           # 1. Create a secure location for the key
-          mkdir -p ./secrets
+          mkdir -p "${{ github.workspace }}/secrets"
 
-          echo "$PRIVATE_KEY" > ./secrets/key-build
-          cat ./secrets/key-build
+          echo "${{ secrets.PRIVATE_KEY }}" > "${{ github.workspace }}/secrets/key-build"
+          chmod 600 "${{ github.workspace }}/secrets/key-build"
+
           gh release create "${{ steps.check.outputs.new_tag }}" \
             --title "${{ steps.check.outputs.new_tag }}" \
             --notes "${{ steps.changelog.outputs.notes }}" \
@@ -192,7 +193,7 @@ jobs:
           NEW_TAG="${{ steps.check.outputs.new_tag }}"
           RELEASE_DIR="artifacts/resources/24.10.3"
           RELEASE_INFO_SRC="./release_info.json"
-          SECRET_PATH="./secrets/key-build"
+          SECRET_PATH="${{ github.workspace }}/secrets/key-build"
 
           # Fail fast if folder missing
           if [ ! -d "$RELEASE_DIR" ]; then
