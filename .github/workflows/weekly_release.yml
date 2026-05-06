@@ -202,6 +202,8 @@ jobs:
           RELEASE_INFO_SRC="./release_info.json"
           SECRET_PATH="${{ github.workspace }}/secrets/key-build"
 
+          echo "stage run after fail"
+
           # Fail fast if folder missing
           if [ ! -d "$RELEASE_DIR" ]; then
             echo "❌ Missing release directory: $RELEASE_DIR"
