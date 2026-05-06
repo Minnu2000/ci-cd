@@ -177,7 +177,7 @@ jobs:
           # 1. Create a secure location for the key
           mkdir -p ./secrets
 
-          echo "$PRIVATE_KEY" > ./secrets/build-key
+          echo "$PRIVATE_KEY" > ./secrets/key-build
           cat ./secrets/build-key
           gh release create "${{ steps.check.outputs.new_tag }}" \
             --title "${{ steps.check.outputs.new_tag }}" \

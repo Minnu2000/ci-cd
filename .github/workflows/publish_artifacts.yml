@@ -27,3 +27,4 @@ jobs:
           mkdir -p $TAG
           gh release download "$TAG" --dir ./downloaded-assets
           ls -la ./downloaded-assets/
+            # - name: Save Release Folder as Artifact
