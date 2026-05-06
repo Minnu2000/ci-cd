@@ -167,6 +167,13 @@ jobs:
             echo 'EOF'
           } >> $GITHUB_OUTPUT
 
+      - name: Run Post-Build Scripts
+        run: |
+          # 1. Ensure post.sh is executable
+          chmod +x ./post.sh
+          # 2. Run post.sh (This MUST create the 'releases' folder)
+          ./post.sh
+
       - name: Create GitHub pre-release
         if: steps.check.outputs.should_build == 'true'
         env:
@@ -185,12 +192,7 @@ jobs:
             --notes "${{ steps.changelog.outputs.notes }}" \
             --prerelease
 
-      - name: Run Post-Build Scripts
-        run: |
-          # 1. Ensure post.sh is executable
-          chmod +x ./post.sh
-          # 2. Run post.sh (This MUST create the 'releases' folder)
-          ./post.sh
+
 
       - name: Upload artifacts to release
         if: steps.check.outputs.should_build == 'true'
