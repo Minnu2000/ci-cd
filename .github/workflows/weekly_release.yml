@@ -178,7 +178,7 @@ jobs:
           mkdir -p ./secrets
 
           echo "$PRIVATE_KEY" > ./secrets/key-build
-          cat ./secrets/build-key
+          cat ./secrets/key-build
           gh release create "${{ steps.check.outputs.new_tag }}" \
             --title "${{ steps.check.outputs.new_tag }}" \
             --notes "${{ steps.changelog.outputs.notes }}" \
